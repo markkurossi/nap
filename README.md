@@ -1,2 +1,1 @@
-# nap
-No Advertising Please
+# 🚫 No Advertising Please 🚫
