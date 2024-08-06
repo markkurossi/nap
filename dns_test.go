@@ -29,11 +29,6 @@ var msgs = [][]byte{
 	},
 }
 
-var decodeOptions = gopacket.DecodeOptions{
-	Lazy:   true,
-	NoCopy: true,
-}
-
 func TestParse(t *testing.T) {
 	for idx, msg := range msgs {
 		packet := gopacket.NewPacket(msg, layers.LayerTypeDNS, decodeOptions)

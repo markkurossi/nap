@@ -8,8 +8,8 @@ package nap
 
 import (
 	"fmt"
+	"log"
 	"net/http"
-	"os"
 	"testing"
 
 	"github.com/markkurossi/go-libs/fn"
@@ -44,11 +44,12 @@ func NAP(w http.ResponseWriter, r *http.Request) {
 
 // Errorf returns an HTTP error.
 func Errorf(w http.ResponseWriter, code int, format string, a ...interface{}) {
-	http.Error(w, fmt.Sprintf(format, a...), code)
+	msg := fmt.Sprintf(format, a...)
+	log.Println(msg)
+	http.Error(w, msg, code)
 }
 
 // Fatalf prints a fatal error and exits the program.
 func Fatalf(format string, a ...interface{}) {
-	fmt.Printf(format, a...)
-	os.Exit(1)
+	log.Fatalf(format, a...)
 }
