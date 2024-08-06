@@ -9,9 +9,7 @@ package nap
 import (
 	"bytes"
 	"encoding/hex"
-	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 
 	"github.com/gopacket/gopacket"
@@ -23,6 +21,11 @@ const dohServer = "https://cloudflare-dns.com/dns-query"
 var decodeOptions = gopacket.DecodeOptions{
 	Lazy:   true,
 	NoCopy: true,
+}
+
+var serializeOptions = gopacket.SerializeOptions{
+	FixLengths:       true,
+	ComputeChecksums: true,
 }
 
 // DNSQuery implements handler for DNS queries.
@@ -47,7 +50,21 @@ func DNSQuery(w http.ResponseWriter, r *http.Request) {
 	dns := layer.(*layers.DNS)
 	for _, q := range dns.Questions {
 		labels := NewLabels(string(q.Name))
-		log.Printf("q: %s\n", labels)
+		logInfo.Printf("q: %s", labels)
+		for _, black := range blacklist {
+			if labels.Match(black) {
+				logInfo.Printf("block: %s (%s)", labels, black)
+				response, err := nonExistingDomain(packet, dns)
+				if err != nil {
+					Errorf(w, http.StatusInternalServerError,
+						"non-existing domain: %v", err)
+					return
+				}
+				w.Header().Set("Content-Type", "application/dns-message")
+				w.Write(response)
+				return
+			}
+		}
 	}
 
 	response, ok := doh(w, data)
@@ -85,7 +102,29 @@ func doh(w http.ResponseWriter, data []byte) ([]byte, bool) {
 			dnsResp.Status, hex.Dump(dnsRespData))
 	}
 
-	fmt.Printf("dnsRespData:\n%s", hex.Dump(dnsRespData))
-
 	return dnsRespData, true
+}
+
+func nonExistingDomain(packet gopacket.Packet, q *layers.DNS) ([]byte, error) {
+	var responseLayers []gopacket.SerializableLayer
+
+	responseLayers = append(responseLayers, &layers.DNS{
+		ID:           q.ID,
+		QR:           true,
+		OpCode:       q.OpCode,
+		AA:           true, // XXX false in example,
+		TC:           false,
+		RD:           q.RD,
+		RA:           false,
+		ResponseCode: layers.DNSResponseCodeNXDomain,
+		Questions:    q.Questions,
+	})
+
+	buffer := gopacket.NewSerializeBuffer()
+	err := gopacket.SerializeLayers(buffer, serializeOptions, responseLayers...)
+	if err != nil {
+		return nil, err
+	}
+
+	return buffer.Bytes(), nil
 }
