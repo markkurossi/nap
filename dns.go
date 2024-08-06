@@ -40,6 +40,15 @@ func DNSQuery(w http.ResponseWriter, r *http.Request) {
 			"Error reading request body: %s", err)
 		return
 	}
+	q := r.URL.Query()
+	name := q.Get("block")
+	if len(name) == 0 {
+		name = "default"
+	}
+	blacklist, ok := blacklists[name]
+	if !ok {
+		logError.Printf("unknown blacklist: %s", name)
+	}
 
 	packet := gopacket.NewPacket(data, layers.LayerTypeDNS, decodeOptions)
 	layer := packet.Layer(layers.LayerTypeDNS)

@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 	"testing"
 
 	"cloud.google.com/go/logging"
@@ -21,8 +22,9 @@ var (
 	mux        *http.ServeMux
 	projectID  string
 	httpClient *http.Client
-	blacklist  []Labels
+	blacklists = make(map[string][]Labels)
 	logInfo    *log.Logger
+	logWarning *log.Logger
 	logError   *log.Logger
 )
 
@@ -46,18 +48,32 @@ func init() {
 		}
 		lg := client.Logger("NAP")
 		logInfo = lg.StandardLogger(logging.Info)
+		logWarning = lg.StandardLogger(logging.Warning)
 		logError = lg.StandardLogger(logging.Error)
 	}
 
 	httpClient = new(http.Client)
 
-	data, err := assets.ReadFile("data/default.bl")
+	entries, err := assets.ReadDir("data")
 	if err != nil {
-		Fatalf("assets.ReadFile: %v", err)
+		Fatalf("assets.ReadDir: %v", err)
 	}
-	blacklist, err = ParseBlacklist(data)
-	if err != nil {
-		Fatalf("ParseBlacklist: %v", err)
+	for _, entry := range entries {
+		name := entry.Name()
+		if !strings.HasSuffix(name, ".bl") {
+			logWarning.Printf("unknown data file: %s", name)
+			continue
+		}
+
+		data, err := assets.ReadFile("data/" + name)
+		if err != nil {
+			Fatalf("assets.ReadFile: %v", err)
+		}
+		blacklist, err := ParseBlacklist(data)
+		if err != nil {
+			Fatalf("ParseBlacklist: %v", err)
+		}
+		blacklists[name[:len(name)-3]] = blacklist
 	}
 }
 
