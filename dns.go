@@ -30,6 +30,16 @@ var serializeOptions = gopacket.SerializeOptions{
 
 // DNSQuery implements handler for DNS queries.
 func DNSQuery(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+
+	if len(cids) > 0 {
+		cid := q.Get("client_id")
+		_, ok := cids[cid]
+		if !ok {
+			Errorf(w, http.StatusUnauthorized, "Invalid client ID")
+			return
+		}
+	}
 	if r.Method != "POST" {
 		Errorf(w, http.StatusBadRequest, "Invalid method %s", r.Method)
 		return
@@ -40,7 +50,6 @@ func DNSQuery(w http.ResponseWriter, r *http.Request) {
 			"Error reading request body: %s", err)
 		return
 	}
-	q := r.URL.Query()
 	name := q.Get("block")
 	if len(name) == 0 {
 		name = "default"
@@ -59,7 +68,6 @@ func DNSQuery(w http.ResponseWriter, r *http.Request) {
 	dns := layer.(*layers.DNS)
 	for _, q := range dns.Questions {
 		labels := NewLabels(string(q.Name))
-		logInfo.Printf("q: %s", labels)
 		for _, black := range blacklist {
 			if labels.Match(black) {
 				logInfo.Printf("block: %s (%s)", labels, black)

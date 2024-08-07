@@ -1,3 +1,9 @@
+//
+// Copyright (c) 2020-2024 Markku Rossi
+//
+// All rights reserved.
+//
+
 package nap
 
 import (

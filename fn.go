@@ -23,6 +23,7 @@ var (
 	projectID  string
 	httpClient *http.Client
 	blacklists = make(map[string][]Labels)
+	cids       = make(map[string]string)
 	logInfo    *log.Logger
 	logWarning *log.Logger
 	logError   *log.Logger
@@ -60,20 +61,32 @@ func init() {
 	}
 	for _, entry := range entries {
 		name := entry.Name()
-		if !strings.HasSuffix(name, ".bl") {
-			logWarning.Printf("unknown data file: %s", name)
-			continue
-		}
-
 		data, err := assets.ReadFile("data/" + name)
 		if err != nil {
 			Fatalf("assets.ReadFile: %v", err)
 		}
-		blacklist, err := ParseBlacklist(data)
-		if err != nil {
-			Fatalf("ParseBlacklist: %v", err)
+
+		if strings.HasSuffix(name, "~") {
+			// Skip Emacs backup files.
+		} else if strings.HasSuffix(name, ".bl") {
+			blacklist, err := ParseBlacklist(data)
+			if err != nil {
+				Fatalf("ParseBlacklist: %v", err)
+			}
+			blacklists[name[:len(name)-3]] = blacklist
+		} else if strings.HasSuffix(name, ".cids") {
+			c, err := ParseCIDs(data)
+			if err != nil {
+				Fatalf("ParseCIDs: %v", err)
+			}
+			for k, v := range c {
+				cids[k] = v
+			}
+		} else {
+			logWarning.Printf("unknown data file: %s", name)
+			continue
 		}
-		blacklists[name[:len(name)-3]] = blacklist
+
 	}
 }
 
