@@ -16,6 +16,9 @@ GNUmakefile
 LICENSE
 README.md
 apps
+docs
+cmd
+ad-platforms
 
 node_modules
 #!include:.gitignore
