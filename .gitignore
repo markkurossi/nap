@@ -23,3 +23,4 @@ go.work.sum
 
 *~
 cmd/decode/decode
+cmd/unspammer/unspammer
