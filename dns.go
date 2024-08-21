@@ -9,6 +9,7 @@ package nap
 import (
 	"bytes"
 	"encoding/hex"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 
@@ -71,7 +72,7 @@ func DNSQuery(w http.ResponseWriter, r *http.Request) {
 		for _, black := range blacklist {
 			if labels.Match(black) {
 				logInfo.Printf("block: %s (%s)", labels, black)
-				response, err := nonExistingDomain(packet, dns)
+				response, err := nonExistingDomain(dns)
 				if err != nil {
 					Errorf(w, http.StatusInternalServerError,
 						"non-existing domain: %v", err)
@@ -122,19 +123,57 @@ func doh(w http.ResponseWriter, data []byte) ([]byte, bool) {
 	return dnsRespData, true
 }
 
-func nonExistingDomain(packet gopacket.Packet, q *layers.DNS) ([]byte, error) {
+func nonExistingDomain(q *layers.DNS) ([]byte, error) {
 	var responseLayers []gopacket.SerializableLayer
 
 	responseLayers = append(responseLayers, &layers.DNS{
 		ID:           q.ID,
 		QR:           true,
 		OpCode:       q.OpCode,
-		AA:           true, // XXX false in example,
+		AA:           true,
 		TC:           false,
 		RD:           q.RD,
 		RA:           false,
 		ResponseCode: layers.DNSResponseCodeNXDomain,
 		Questions:    q.Questions,
+	})
+
+	buffer := gopacket.NewSerializeBuffer()
+	err := gopacket.SerializeLayers(buffer, serializeOptions, responseLayers...)
+	if err != nil {
+		return nil, err
+	}
+
+	return buffer.Bytes(), nil
+}
+
+func cname(q *layers.DNS, cname string) ([]byte, error) {
+	var responseLayers []gopacket.SerializableLayer
+
+	if len(q.Questions) != 1 {
+		return nil, fmt.Errorf("cname: expected 1 question, got %v",
+			len(q.Questions))
+	}
+
+	responseLayers = append(responseLayers, &layers.DNS{
+		ID:           q.ID,
+		QR:           true,
+		OpCode:       q.OpCode,
+		AA:           true,
+		TC:           false,
+		RD:           q.RD,
+		RA:           true,
+		ResponseCode: layers.DNSResponseCodeNoErr,
+		Questions:    q.Questions,
+		Answers: []layers.DNSResourceRecord{
+			{
+				Name:  q.Questions[0].Name,
+				Type:  layers.DNSTypeCNAME,
+				Class: layers.DNSClassIN,
+				TTL:   60,
+				CNAME: []byte(cname),
+			},
+		},
 	})
 
 	buffer := gopacket.NewSerializeBuffer()
