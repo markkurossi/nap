@@ -22,7 +22,7 @@ var (
 	mux        *http.ServeMux
 	projectID  string
 	httpClient *http.Client
-	blacklists = make(map[string][]Labels)
+	blacklists = make(map[string][]Blacklist)
 	cids       = make(map[string]string)
 	logInfo    *log.Logger
 	logWarning *log.Logger
