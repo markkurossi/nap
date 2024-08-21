@@ -15,6 +15,7 @@ import (
 // CIDs define known client IDs.
 type CIDs map[string]string
 
+// ParseCIDs parses the CID data.
 func ParseCIDs(data []byte) (CIDs, error) {
 	result := make(map[string]string)
 
