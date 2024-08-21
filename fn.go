@@ -31,7 +31,7 @@ var (
 
 func init() {
 	mux = http.NewServeMux()
-	mux.HandleFunc("/hello", Hello)
+	mux.HandleFunc("/", Hello)
 	mux.HandleFunc("/dns-query", DNSQuery)
 
 	if !testing.Testing() {
