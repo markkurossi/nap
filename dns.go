@@ -11,6 +11,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"net/http"
 
 	"github.com/gopacket/gopacket"
@@ -70,12 +71,25 @@ func DNSQuery(w http.ResponseWriter, r *http.Request) {
 	for _, q := range dns.Questions {
 		labels := NewLabels(string(q.Name))
 		for _, black := range blacklist {
-			if labels.Match(black) {
-				logInfo.Printf("block: %s (%s)", labels, black)
-				response, err := nonExistingDomain(dns)
+			if labels.Match(black.Labels) {
+				var response []byte
+				var err error
+
+				if black.Block() {
+					logInfo.Printf("block: %s (%s)", labels, black.Labels)
+					response, err = nonExistingDomain(dns)
+				} else if len(black.Name) > 0 {
+					logInfo.Printf("%s => %s (%s)", labels, black.Name,
+						black.Labels)
+					response, err = cname(dns, black.Name)
+				} else {
+					logInfo.Printf("%s => %s (%s)", labels, black.Address,
+						black.Labels)
+					response, err = address(dns, black.Address)
+				}
 				if err != nil {
 					Errorf(w, http.StatusInternalServerError,
-						"non-existing domain: %v", err)
+						"%s: %s", black, err)
 					return
 				}
 				w.Header().Set("Content-Type", "application/dns-message")
@@ -172,6 +186,54 @@ func cname(q *layers.DNS, cname string) ([]byte, error) {
 				Class: layers.DNSClassIN,
 				TTL:   60,
 				CNAME: []byte(cname),
+			},
+		},
+	})
+
+	buffer := gopacket.NewSerializeBuffer()
+	err := gopacket.SerializeLayers(buffer, serializeOptions, responseLayers...)
+	if err != nil {
+		return nil, err
+	}
+
+	return buffer.Bytes(), nil
+}
+
+func address(q *layers.DNS, addr net.IP) ([]byte, error) {
+	var responseLayers []gopacket.SerializableLayer
+
+	if len(q.Questions) != 1 {
+		return nil, fmt.Errorf("address: expected 1 question, got %v",
+			len(q.Questions))
+	}
+
+	var t layers.DNSType
+	switch len(addr) {
+	case 4:
+		t = layers.DNSTypeA
+	case 16:
+		t = layers.DNSTypeAAAA
+	default:
+		return nil, fmt.Errorf("address: invalid address: %v", addr)
+	}
+
+	responseLayers = append(responseLayers, &layers.DNS{
+		ID:           q.ID,
+		QR:           true,
+		OpCode:       q.OpCode,
+		AA:           true,
+		TC:           false,
+		RD:           q.RD,
+		RA:           true,
+		ResponseCode: layers.DNSResponseCodeNoErr,
+		Questions:    q.Questions,
+		Answers: []layers.DNSResourceRecord{
+			{
+				Name:  q.Questions[0].Name,
+				Type:  t,
+				Class: layers.DNSClassIN,
+				TTL:   60,
+				IP:    addr,
 			},
 		},
 	})
