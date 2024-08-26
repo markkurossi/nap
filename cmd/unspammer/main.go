@@ -54,7 +54,7 @@ func main() {
 
 	tlsConfig := &tls.Config{
 		GetCertificate: func(info *tls.ClientHelloInfo) (*tls.Certificate, error) {
-			log.Printf("ServerName: %v\n", info.ServerName)
+			fmt.Printf("ServerName: %v\n", info.ServerName)
 			tlsCert, ok := certificates[info.ServerName]
 			if !ok {
 				eeTmpl.Subject = pkix.Name{
@@ -103,14 +103,16 @@ var cors = map[string]string{
 }
 
 func handler(w http.ResponseWriter, r *http.Request) {
-	log.Printf("%v: %v\n", r.Method, r.URL.Path)
-	if r.Method == "OPTIONS" {
-		log.Printf(" ? %v\n", r.URL.RawQuery)
+	fmt.Printf("%s: %s\n", r.Method, r.URL.Path)
+	if false {
 		for k, values := range r.Header {
 			for _, v := range values {
-				log.Printf(" - %v: %v\n", k, v)
+				fmt.Printf(" - %v: %v\n", k, v)
 			}
 		}
+	}
+
+	if r.Method == "OPTIONS" {
 
 		if false {
 			setHdr(r, w, "Access-Control-Request-Private-Network",
@@ -130,22 +132,54 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(200)
 		return
 	}
-	for k, values := range r.Header {
-		for _, v := range values {
-			log.Printf("%v: %v\n", k, v)
-		}
-	}
+
 	if strings.HasPrefix(r.URL.Path, "/ad/") {
-		log.Printf(" - sending empty VAST\n")
 		for k, v := range cors {
 			w.Header().Set(k, v)
 		}
 		w.Header().Set("Content-Type", "text/xml")
-		fmt.Fprintf(w, `<VAST version='4.1'
+
+		q := r.URL.Query()
+		switch q.Get("resp") {
+		case "vast4":
+			fmt.Printf(" - returning vast4\n")
+			fmt.Fprint(w, `<VAST version='4.1'
       xmlns:xsi='http://www.w3.org/2001/XMLSchema-instance'
       xsi:noNamespaceSchemaLocation='vast.xsd'>
 </VAST>
 `)
+		case "vmap1+vast4":
+			fmt.Printf(" - returning vmap1+vast4\n")
+			fmt.Fprint(w, `<vmap:VMAP version='1.0'
+           xmlns:vmap='http://www.iab.net/vmap-1.0'>
+  <vmap:AdBreak breakId='0.0.0.2046985237'
+                breakType='linear'
+                timeOffset='start'>
+    <vmap:AdSource allowMultipleAds='true' followRedirects='true' id='1'>
+      <vmap:VASTAdData>
+        <VAST version='4.1'
+              xmlns:xsi='http://www.w3.org/2001/XMLSchema-instance'
+              xsi:noNamespaceSchemaLocation='vast.xsd'/>
+      </vmap:VASTAdData>
+    </vmap:AdSource>
+    <vmap:TrackingEvents>
+      <vmap:Tracking event='breakEnd'>
+        <![CDATA[https://805ba.v.fwmrm.net/ad/l/1?s=l0d8e&n=525754%3B525754%3B512166%3B512167%3B512188%3B517424&t=1724414563520472336&f=262144&cn=videoView&et=i&uxnw=&uxss=&uxct=&init=1&vcid2=1f928695-eaa3-4f7c-a51d-09a877c1164e]]>
+      </vmap:Tracking>
+      <vmap:Tracking event='breakStart'>
+        <![CDATA[https://805ba.v.fwmrm.net/ad/l/1?s=l0d8e&n=525754%3B525754%3B512166%3B512167%3B512188%3B517424&t=1724414563520472336&f=262144&cn=slotImpression&et=i&tpos=0&init=1&slid=0,1,2]]>
+      </vmap:Tracking>
+    </vmap:TrackingEvents>
+  </vmap:AdBreak>
+</vmap:VMAP>`)
+
+		default:
+			fmt.Printf(" - unknown resp: %s\n", q.Get("resp"))
+			fmt.Printf(" - q: %s\n", r.RequestURI)
+			for k, v := range q {
+				fmt.Printf(" - %s=%v\n", k, v)
+			}
+		}
 	} else {
 		fmt.Fprintf(w, "Hello, %q\n", html.EscapeString(r.URL.String()))
 	}
