@@ -21,12 +21,14 @@ import (
 	"time"
 )
 
+// CA implements a Certificate Authority.
 type CA struct {
 	name string
 	priv *ecdsa.PrivateKey
 	Cert *x509.Certificate
 }
 
+// CreateCA creates a new CA with the specified name.
 func CreateCA(name string) (*CA, error) {
 	priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
@@ -89,6 +91,7 @@ func CreateCA(name string) (*CA, error) {
 	}, nil
 }
 
+// OpenCA opens the CA.
 func OpenCA(name string) (*CA, error) {
 	priv, err := loadPrivateKey(privateKeyName(name))
 	if err != nil {
@@ -110,6 +113,7 @@ func OpenCA(name string) (*CA, error) {
 	}, nil
 }
 
+// CreateEEKey creates a new end entity (EE) keypair.
 func (ca *CA) CreateEEKey() (crypto.PrivateKey, crypto.PublicKey, error) {
 	priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
@@ -118,6 +122,10 @@ func (ca *CA) CreateEEKey() (crypto.PrivateKey, crypto.PublicKey, error) {
 	return priv, &priv.PublicKey, nil
 }
 
+// CreateCertificate creates a new end certificate for the public
+// key. The tmpl argument specifies the certificate template
+// values. The function will override CA related attributes from the
+// template.
 func (ca *CA) CreateCertificate(tmpl *x509.Certificate, pub any) (
 	*x509.Certificate, error) {
 
