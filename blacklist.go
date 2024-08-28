@@ -1,6 +1,4 @@
 //
-// blacklist.go
-//
 // Copyright (c) 2019-2024 Markku Rossi
 //
 // All rights reserved.

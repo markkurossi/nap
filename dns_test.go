@@ -43,6 +43,7 @@ func TestParse(t *testing.T) {
 			t.Errorf("msg-%d: not a DNS packet", idx)
 			continue
 		}
-		fmt.Printf("msg: %v\n", layer)
+		dns := layer.(*layers.DNS)
+		fmt.Printf("DNS.OpCode: %v\n", dns.OpCode)
 	}
 }
