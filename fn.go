@@ -8,6 +8,7 @@ package nap
 
 import (
 	"context"
+	"embed"
 	"fmt"
 	"log"
 	"net/http"
@@ -16,13 +17,20 @@ import (
 
 	"cloud.google.com/go/logging"
 	"github.com/markkurossi/go-libs/fn"
+	"github.com/markkurossi/nap/blacklist"
+	"github.com/markkurossi/nap/handlers"
 )
+
+// Data assets.
+//
+//go:embed data/*
+var assets embed.FS
 
 var (
 	mux        *http.ServeMux
 	projectID  string
 	httpClient *http.Client
-	blacklists = make(map[string][]Blacklist)
+	blacklists = make(map[string]*blacklist.Blacklist)
 	cids       = make(map[string]string)
 	logInfo    *log.Logger
 	logWarning *log.Logger
@@ -31,7 +39,7 @@ var (
 
 func init() {
 	mux = http.NewServeMux()
-	mux.HandleFunc("/", Hello)
+	mux.HandleFunc("/", handlers.Hello)
 	mux.HandleFunc("/dns-query", DNSQuery)
 
 	if !testing.Testing() {
@@ -69,7 +77,7 @@ func init() {
 		if strings.HasSuffix(name, "~") {
 			// Skip Emacs backup files.
 		} else if strings.HasSuffix(name, ".bl") {
-			blacklist, err := ParseBlacklist(data)
+			blacklist, err := blacklist.ParseData(data)
 			if err != nil {
 				Fatalf("ParseBlacklist: %v", err)
 			}

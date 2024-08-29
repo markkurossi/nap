@@ -4,7 +4,7 @@
 // All rights reserved.
 //
 
-package nap
+package handlers
 
 import (
 	"net/http"

@@ -12,31 +12,42 @@ import (
 	"crypto/x509/pkix"
 	"flag"
 	"fmt"
-	"html"
+	"io"
 	"log"
 	"net/http"
-	"strings"
+	"os"
 	"time"
 
+	"github.com/markkurossi/nap/blacklist"
+	"github.com/markkurossi/nap/handlers"
 	"github.com/markkurossi/nap/pki"
 )
 
 var (
+	bl           *blacklist.Blacklist
 	certificates = make(map[string]*tls.Certificate)
 )
 
 func main() {
+	blName := flag.String("blacklist", "", "DNS blacklist")
 	caName := flag.String("ca", "", "The name of the CA")
 	createCA := flag.Bool("create-ca", false, "Create CA")
 	addr := flag.String("addr", ":443", "Address to listen")
 	flag.Parse()
+
+	if len(*blName) == 0 {
+		log.Fatal("Blacklist name not specified")
+	}
+	err := readBlacklist(*blName)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	if len(*caName) == 0 {
 		log.Fatal("CA name not specified")
 	}
 
 	var ca *pki.CA
-	var err error
 
 	if *createCA {
 		ca, err = pki.CreateCA(*caName)
@@ -91,6 +102,20 @@ func main() {
 	log.Fatal(s.ListenAndServeTLS("", ""))
 }
 
+func readBlacklist(list string) error {
+	f, err := os.Open(list)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	data, err := io.ReadAll(f)
+	if err != nil {
+		return err
+	}
+	bl, err = blacklist.ParseData(data)
+	return err
+}
+
 var cors = map[string]string{
 	"Access-Control-Allow-Methods":     "GET,POST,OPTIONS",
 	"Access-Control-Allow-Origin":      "*",
@@ -101,6 +126,7 @@ var cors = map[string]string{
 
 func handler(w http.ResponseWriter, r *http.Request) {
 	fmt.Printf("%s: %s\n", r.Method, r.URL.Path)
+
 	if false {
 		for k, values := range r.Header {
 			for _, v := range values {
@@ -109,31 +135,20 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if r.Method == "OPTIONS" {
+	for k, v := range cors {
+		w.Header().Set(k, v)
+	}
 
-		if false {
-			setHdr(r, w, "Access-Control-Request-Private-Network",
-				"Private-Network")
-			w.Header().Set("Access-Control-Allow-Headers", "*")
-			w.Header().Set("Access-Control-Allow-Methods",
-				"GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS")
-			w.Header().Set("Access-Control-Allow-Origin", "*")
-			w.Header().Set("Access-Control-Allow-Credentials", "true")
-			w.Header().Set("Access-Control-Max-Age", "240")
-			w.WriteHeader(204)
-		}
-		for k, v := range cors {
-			w.Header().Set(k, v)
-		}
+	if r.Method == "OPTIONS" {
 		w.Header().Set("Content-Type", "text/html")
 		w.WriteHeader(200)
 		return
 	}
 
-	if strings.HasPrefix(r.URL.Path, "/ad/") {
-		for k, v := range cors {
-			w.Header().Set(k, v)
-		}
+	entry := bl.Match(r.Host)
+	if entry == nil || entry.ProxyCmd == blacklist.ProxyBlock {
+		handlers.Hello(w, r)
+	} else if entry.ProxyCmd == blacklist.ProxyVAST {
 		w.Header().Set("Content-Type", "text/xml")
 
 		q := r.URL.Query()
@@ -154,13 +169,6 @@ func handler(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	} else {
-		fmt.Fprintf(w, "Hello, %q\n", html.EscapeString(r.URL.String()))
-	}
-}
-
-func setHdr(r *http.Request, w http.ResponseWriter, req, resp string) {
-	val := r.Header.Get(req)
-	if len(val) > 0 {
-		w.Header().Set("Access-Control-Allow-"+resp, val)
+		proxy(w, r)
 	}
 }

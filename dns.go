@@ -69,34 +69,29 @@ func DNSQuery(w http.ResponseWriter, r *http.Request) {
 	}
 	dns := layer.(*layers.DNS)
 	for _, q := range dns.Questions {
-		labels := NewLabels(string(q.Name))
-		for _, black := range blacklist {
-			if labels.Match(black.Labels) {
-				var response []byte
-				var err error
+		name := string(q.Name)
+		entry := blacklist.Match(name)
 
-				if black.Block() {
-					logInfo.Printf("block: %s (%s)", labels, black.Labels)
-					response, err = nonExistingDomain(dns)
-				} else if len(black.Name) > 0 {
-					logInfo.Printf("%s => %s (%s)", labels, black.Name,
-						black.Labels)
-					response, err = cname(dns, black.Name)
-				} else {
-					logInfo.Printf("%s => %s (%s)", labels, black.Address,
-						black.Labels)
-					response, err = address(dns, black.Address)
-				}
-				if err != nil {
-					Errorf(w, http.StatusInternalServerError,
-						"%s: %s", black, err)
-					return
-				}
-				w.Header().Set("Content-Type", "application/dns-message")
-				w.Write(response)
-				return
-			}
+		var response []byte
+		var err error
+
+		if entry.Block() {
+			logInfo.Printf("block: %s (%s)", name, entry.Labels)
+			response, err = nonExistingDomain(dns)
+		} else if len(entry.Name) > 0 {
+			logInfo.Printf("%s => %s (%s)", name, entry.Name, entry.Labels)
+			response, err = cname(dns, entry.Name)
+		} else {
+			logInfo.Printf("%s => %s (%s)", name, entry.Address, entry.Labels)
+			response, err = address(dns, entry.Address)
 		}
+		if err != nil {
+			Errorf(w, http.StatusInternalServerError, "%s: %s", entry, err)
+			return
+		}
+		w.Header().Set("Content-Type", "application/dns-message")
+		w.Write(response)
+		return
 	}
 
 	response, ok := doh(w, data)
