@@ -1,7 +1,7 @@
 
-all: unspammer.linux
+all: unspammer-linux-amd64
 
-.PHONY: unspammer.linux
+.PHONY: unspammer-linux-amd64
 
-unspammer.linux:
+unspammer-linux-amd64:
 	GOOS=linux GOARCH=amd64 go build -o $@
