@@ -24,4 +24,4 @@ go.work.sum
 *~
 cmd/decode/decode
 cmd/unspammer/unspammer
-cmd/unspammer/unspammer.linux
+cmd/unspammer/unspammer-linux-amd64
