@@ -136,8 +136,8 @@ func (ca *CA) CreateCertificate(tmpl *x509.Certificate, pub any) (
 	now := time.Now()
 	tmpl.SignatureAlgorithm = x509.ECDSAWithSHA512
 	tmpl.SerialNumber = serial
-	tmpl.NotBefore = now
-	tmpl.NotAfter = now.Add(time.Hour * 24)
+	tmpl.NotBefore = now.Add(time.Hour * -24)
+	tmpl.NotAfter = now.Add(time.Hour * 24 * 2)
 	tmpl.KeyUsage = x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment
 	tmpl.ExtKeyUsage = []x509.ExtKeyUsage{
 		x509.ExtKeyUsageServerAuth,
