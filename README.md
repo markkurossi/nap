@@ -6,7 +6,7 @@
 
  - CNAME or A/AAA redirect to unspammer
  - CA with on-demand certificate vending
- - Send empty [VAST](docs/VAST_4.3.pdf)/[VMAP](docs/VMAP.pdf
+ - Send empty [VAST](docs/VAST_4.3.pdf)/[VMAP](docs/VMAP.pdf)
    responses to block advertisements
 
 When the ad server does not or cannot return an Ad, the VAST response
