@@ -1,0 +1,13 @@
+[Unit]
+Description=Unspammer service
+After=network.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=1
+ExecStart=/home/mtr/unspammer-linux-amd64 -ca /home/mtr/nap -blacklist /home/mtr/default.bl
+
+[Install]
+WantedBy=multi-user.target
