@@ -19,7 +19,7 @@ var googlebotHeaders = map[string]string{
 
 func proxy(w http.ResponseWriter, r *http.Request) {
 	url := fmt.Sprintf("https://%s%s", r.Host, r.RequestURI)
-	fmt.Printf(" - proxy => %s\n", url)
+	log.Printf(" - proxy => %s\n", url)
 
 	req, err := http.NewRequest(r.Method, url, r.Body)
 	if err != nil {

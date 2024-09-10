@@ -35,6 +35,8 @@ func main() {
 	addr := flag.String("addr", ":443", "Address to listen")
 	flag.Parse()
 
+	log.SetFlags(0)
+
 	if len(*blName) == 0 {
 		log.Fatal("Blacklist name not specified")
 	}
@@ -65,7 +67,6 @@ func main() {
 
 	tlsConfig := &tls.Config{
 		GetCertificate: func(info *tls.ClientHelloInfo) (*tls.Certificate, error) {
-			fmt.Printf("ServerName: %v\n", info.ServerName)
 			tlsCert, ok := certificates[info.ServerName]
 			if !ok {
 				eeTmpl.Subject = pkix.Name{
@@ -125,7 +126,7 @@ var cors = map[string]string{
 }
 
 func handler(w http.ResponseWriter, r *http.Request) {
-	fmt.Printf("%s: %s\n", r.Method, r.URL.Path)
+	log.Printf("%s: %s\n", r.Method, r.URL.Path)
 
 	if false {
 		for k, values := range r.Header {
@@ -154,15 +155,15 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		q := r.URL.Query()
 		switch q.Get("resp") {
 		case "vast4":
-			fmt.Printf(" - returning vast4\n")
+			log.Printf(" - returning vast4\n")
 			fmt.Fprint(w, emptyVAST)
 
 		case "vmap1+vast4":
-			fmt.Printf(" - returning vmap1+vast4\n")
+			log.Printf(" - returning vmap1+vast4\n")
 			fmt.Fprint(w, emptyVASTVMAP)
 
 		default:
-			fmt.Printf(" - unknown resp: %s\n", q.Get("resp"))
+			log.Printf(" - unknown resp: %s\n", q.Get("resp"))
 			fmt.Printf(" - q: %s\n", r.RequestURI)
 			for k, v := range q {
 				fmt.Printf(" - %s=%v\n", k, v)
