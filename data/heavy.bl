@@ -50,7 +50,10 @@ subscribe.washingtonpost.com
 # Freewheel - a Comcast company - provides a TV marketplace for buyers
 # and sellers. The solution combines targeting and measurement across
 # all screens and data types.
-**.fwmrm.net
+**.fwmrm.net => ephemelier.com VAST
+
+**.nytimes.com => ephemelier.com Googlebot
+**.kauppalehti.fi => ephemelier.com Googlebot
 
 *.home
 **.ad.*
