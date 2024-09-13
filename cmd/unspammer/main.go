@@ -18,6 +18,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/markkurossi/nap/acme"
 	"github.com/markkurossi/nap/blacklist"
 	"github.com/markkurossi/nap/handlers"
 	"github.com/markkurossi/nap/pki"
@@ -33,6 +34,9 @@ func main() {
 	caName := flag.String("ca", "", "The name of the CA")
 	createCA := flag.Bool("create-ca", false, "Create CA")
 	addr := flag.String("addr", ":443", "Address to listen")
+	acmeHostname := flag.String("acme", "", "ACME hostname")
+	email := flag.String("email", "", "")
+	dryRun := flag.Bool("dry-run", false, "Connect to testing ACME endpoint")
 	flag.Parse()
 
 	log.SetFlags(0)
@@ -48,6 +52,15 @@ func main() {
 	if len(*caName) == 0 {
 		log.Fatal("CA name not specified")
 	}
+
+	var acmeClient *acme.Client
+	if len(*acmeHostname) > 0 {
+		acmeClient, err = acme.New(*acmeHostname, *email, *dryRun)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+	_ = acmeClient
 
 	var ca *pki.CA
 
