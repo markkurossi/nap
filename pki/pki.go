@@ -1,5 +1,5 @@
 //
-// Copyright (c) 2024 Markku Rossi
+// Copyright (c) 2024-2025 Markku Rossi
 //
 // All rights reserved.
 //
@@ -75,7 +75,7 @@ func CreateCA(name string) (*CA, error) {
 		return nil, err
 	}
 
-	err = savePrivateKey(privateKeyName(name), priv)
+	err = SavePrivateKey(privateKeyName(name), priv)
 	if err != nil {
 		return nil, err
 	}
@@ -114,7 +114,7 @@ func OpenCA(name string) (*CA, error) {
 }
 
 // CreateEEKey creates a new end entity (EE) keypair.
-func (ca *CA) CreateEEKey() (crypto.PrivateKey, crypto.PublicKey, error) {
+func (ca *CA) CreateEEKey() (*ecdsa.PrivateKey, crypto.PublicKey, error) {
 	priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
 		return nil, nil, err
@@ -126,8 +126,8 @@ func (ca *CA) CreateEEKey() (crypto.PrivateKey, crypto.PublicKey, error) {
 // key. The tmpl argument specifies the certificate template
 // values. The function will override CA related attributes from the
 // template.
-func (ca *CA) CreateCertificate(tmpl *x509.Certificate, pub any) (
-	*x509.Certificate, error) {
+func (ca *CA) CreateCertificate(tmpl *x509.Certificate, pub any,
+	validity time.Duration) (*x509.Certificate, error) {
 
 	serial, err := rand.Int(rand.Reader, big.NewInt(math.MaxInt64))
 	if err != nil {
@@ -137,8 +137,8 @@ func (ca *CA) CreateCertificate(tmpl *x509.Certificate, pub any) (
 	tmpl.SignatureAlgorithm = x509.ECDSAWithSHA512
 	tmpl.SerialNumber = serial
 	tmpl.NotBefore = now.Add(time.Hour * -24)
-	tmpl.NotAfter = now.Add(time.Hour * 24 * 2)
-	tmpl.KeyUsage = x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment
+	tmpl.NotAfter = now.Add(validity)
+	tmpl.KeyUsage = x509.KeyUsageDigitalSignature
 	tmpl.ExtKeyUsage = []x509.ExtKeyUsage{
 		x509.ExtKeyUsageServerAuth,
 		x509.ExtKeyUsageClientAuth,
@@ -160,7 +160,8 @@ func certName(name string) string {
 	return name + ".crt"
 }
 
-func savePrivateKey(name string, privateKey *ecdsa.PrivateKey) error {
+// SavePrivateKey saves the private key to the specified file.
+func SavePrivateKey(name string, privateKey *ecdsa.PrivateKey) error {
 	x509Encoded, err := x509.MarshalECPrivateKey(privateKey)
 	if err != nil {
 		return err

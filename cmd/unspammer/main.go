@@ -1,5 +1,5 @@
 //
-// Copyright (c) 2024 Markku Rossi
+// Copyright (c) 2024-2025 Markku Rossi
 //
 // All rights reserved.
 //
@@ -10,12 +10,14 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/pem"
 	"flag"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/markkurossi/nap/acme"
@@ -33,6 +35,7 @@ func main() {
 	blName := flag.String("blacklist", "", "DNS blacklist")
 	caName := flag.String("ca", "", "The name of the CA")
 	createCA := flag.Bool("create-ca", false, "Create CA")
+	createEE := flag.String("create-ee", "", "Create EE certificate")
 	addr := flag.String("addr", ":443", "Address to listen")
 	acmeHostname := flag.String("acme", "", "ACME hostname")
 	email := flag.String("email", "", "")
@@ -41,17 +44,11 @@ func main() {
 
 	log.SetFlags(0)
 
-	if len(*blName) == 0 {
-		log.Fatal("Blacklist name not specified")
-	}
-	err := readBlacklist(*blName)
-	if err != nil {
-		log.Fatal(err)
-	}
-
 	if len(*caName) == 0 {
 		log.Fatal("CA name not specified")
 	}
+
+	var err error
 
 	var acmeClient *acme.Client
 	if len(*acmeHostname) > 0 {
@@ -72,6 +69,22 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	if len(*createEE) != 0 {
+		err = createEECertificate(ca, *createEE, time.Hour*24*365*2)
+		if err != nil {
+			log.Fatal(err)
+		}
+		return
+	}
+
+	if len(*blName) == 0 {
+		log.Fatal("Blacklist name not specified")
+	}
+	err = readBlacklist(*blName)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	eePriv, eePub, err := ca.CreateEEKey()
 	if err != nil {
 		log.Fatal(err)
@@ -87,7 +100,7 @@ func main() {
 				}
 				eeTmpl.DNSNames = []string{info.ServerName}
 
-				cert, err := ca.CreateCertificate(eeTmpl, eePub)
+				cert, err := ca.CreateCertificate(eeTmpl, eePub, time.Hour*24*2)
 				if err != nil {
 					return nil, err
 				}
@@ -114,6 +127,50 @@ func main() {
 		MaxHeaderBytes: 1 << 20,
 	}
 	log.Fatal(s.ListenAndServeTLS("", ""))
+}
+
+func createEECertificate(ca *pki.CA, dnsNames string,
+	validity time.Duration) error {
+
+	names := strings.Split(dnsNames, ",")
+
+	priv, pub, err := ca.CreateEEKey()
+	if err != nil {
+		return err
+	}
+
+	tmpl := &x509.Certificate{
+		Subject: pkix.Name{
+			CommonName: names[0],
+		},
+		DNSNames: names,
+	}
+	cert, err := ca.CreateCertificate(tmpl, pub, validity)
+	if err != nil {
+		return err
+	}
+	err = pki.SavePrivateKey("ee-priv.pem", priv)
+	if err != nil {
+		return err
+	}
+	return saveCertificate("ee-cert.pem", cert.Raw)
+}
+
+func saveCertificate(filename string, der []byte) error {
+	file, err := os.Create(filename)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	err = pem.Encode(file, &pem.Block{
+		Type:  "CERTIFICATE",
+		Bytes: der,
+	})
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func readBlacklist(list string) error {
