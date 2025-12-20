@@ -1,9 +1,10 @@
 //
-// Copyright (c) 2024 Markku Rossi
+// Copyright (c) 2024-2025 Markku Rossi
 //
 // All rights reserved.
 //
 
+// Package acme implements Let's Encrypt ACME integration.
 package acme
 
 import (

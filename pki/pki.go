@@ -4,6 +4,7 @@
 // All rights reserved.
 //
 
+// Package pki implements the PKI Certificate Authority.
 package pki
 
 import (

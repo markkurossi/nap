@@ -1,9 +1,10 @@
 //
-// Copyright (c) 2020-2024 Markku Rossi
+// Copyright (c) 2020-2025 Markku Rossi
 //
 // All rights reserved.
 //
 
+// Package nap implements the No Advertising Please (NAP) ad blocker.
 package nap
 
 import (

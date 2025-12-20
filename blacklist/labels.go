@@ -1,5 +1,5 @@
 //
-// Copyright (c) 2019-2024 Markku Rossi
+// Copyright (c) 2019-2025 Markku Rossi
 //
 // All rights reserved.
 //
@@ -30,10 +30,7 @@ func (l Labels) Match(o Labels) bool {
 func glob(value, pattern []string) bool {
 	for {
 		if len(pattern) == 0 {
-			if len(value) == 0 {
-				return true
-			}
-			return false
+			return len(value) == 0
 		} else if len(value) == 0 {
 			return false
 		}

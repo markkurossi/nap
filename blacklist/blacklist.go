@@ -1,9 +1,10 @@
 //
-// Copyright (c) 2019-2024 Markku Rossi
+// Copyright (c) 2019-2025 Markku Rossi
 //
 // All rights reserved.
 //
 
+// Package blacklist implements the DNS handling logic.
 package blacklist
 
 import (

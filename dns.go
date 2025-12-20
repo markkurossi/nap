@@ -1,5 +1,5 @@
 //
-// Copyright (c) 2020-2024 Markku Rossi
+// Copyright (c) 2020-2025 Markku Rossi
 //
 // All rights reserved.
 //
@@ -10,7 +10,7 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net"
 	"net/http"
 
@@ -47,19 +47,19 @@ func DNSQuery(w http.ResponseWriter, r *http.Request) {
 		Errorf(w, http.StatusBadRequest, "Invalid method %s", r.Method)
 		return
 	}
-	data, err := ioutil.ReadAll(r.Body)
+	data, err := io.ReadAll(r.Body)
 	if err != nil {
 		Errorf(w, http.StatusInternalServerError,
 			"Error reading request body: %s", err)
 		return
 	}
-	name := q.Get("block")
-	if len(name) == 0 {
-		name = "default"
+	listName := q.Get("block")
+	if len(listName) == 0 {
+		listName = "default"
 	}
-	blacklist, ok := blacklists[name]
+	blacklist, ok := blacklists[listName]
 	if !ok {
-		logError.Printf("unknown blacklist: %s", name)
+		logError.Printf("unknown blacklist: %s", listName)
 	}
 
 	packet := gopacket.NewPacket(data, layers.LayerTypeDNS, decodeOptions)
@@ -69,37 +69,38 @@ func DNSQuery(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	dns := layer.(*layers.DNS)
-	for _, q := range dns.Questions {
-		name := string(q.Name)
-		entry := blacklist.Match(name)
-
-		var response []byte
-		var err error
-
-		if entry.Block() {
-			logInfo.Printf("block: %s (%s)", name, entry.Labels)
-			response, err = nonExistingDomain(dns)
-		} else if len(entry.Name) > 0 {
-			logInfo.Printf("%s => %s (%s)", name, entry.Name, entry.Labels)
-			response, err = cname(dns, entry.Name)
-		} else {
-			logInfo.Printf("%s => %s (%s)", name, entry.Address, entry.Labels)
-			response, err = address(dns, entry.Address)
-		}
-		if err != nil {
-			Errorf(w, http.StatusInternalServerError, "%s: %s", entry, err)
+	if len(dns.Questions) == 0 {
+		// No questions, relay request.
+		response, ok := doh(w, data)
+		if !ok {
 			return
 		}
+
 		w.Header().Set("Content-Type", "application/dns-message")
 		w.Write(response)
-		return
 	}
 
-	response, ok := doh(w, data)
-	if !ok {
+	// XXX we only handle the first question.
+
+	name := string(dns.Questions[0].Name)
+	entry := blacklist.Match(name)
+
+	var response []byte
+
+	if entry.Block() {
+		logInfo.Printf("block: %s (%s)", name, entry.Labels)
+		response, err = nonExistingDomain(dns)
+	} else if len(entry.Name) > 0 {
+		logInfo.Printf("%s => %s (%s)", name, entry.Name, entry.Labels)
+		response, err = cname(dns, entry.Name)
+	} else {
+		logInfo.Printf("%s => %s (%s)", name, entry.Address, entry.Labels)
+		response, err = address(dns, entry.Address)
+	}
+	if err != nil {
+		Errorf(w, http.StatusInternalServerError, "%s: %s", entry, err)
 		return
 	}
-
 	w.Header().Set("Content-Type", "application/dns-message")
 	w.Write(response)
 }
@@ -119,7 +120,7 @@ func doh(w http.ResponseWriter, data []byte) ([]byte, bool) {
 	}
 	defer dnsResp.Body.Close()
 
-	dnsRespData, err := ioutil.ReadAll(dnsResp.Body)
+	dnsRespData, err := io.ReadAll(dnsResp.Body)
 	if err != nil {
 		Errorf(w, http.StatusBadGateway,
 			"error reading server response: %s", err)

@@ -1,5 +1,5 @@
 //
-// Copyright (c) 2024 Markku Rossi
+// Copyright (c) 2024-2025 Markku Rossi
 //
 // All rights reserved.
 //
@@ -8,7 +8,7 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"os"
 	"regexp"
@@ -19,7 +19,7 @@ var reHex = regexp.MustCompilePOSIX(`^[[:xdigit:]]{8}  ([^|]+)  |`)
 var reSep = regexp.MustCompilePOSIX(`[[:space:]]+`)
 
 func main() {
-	data, err := ioutil.ReadAll(os.Stdin)
+	data, err := io.ReadAll(os.Stdin)
 	if err != nil {
 		log.Fatal(err)
 	}
