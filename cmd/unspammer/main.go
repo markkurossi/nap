@@ -1,5 +1,5 @@
 //
-// Copyright (c) 2024-2025 Markku Rossi
+// Copyright (c) 2024-2026 Markku Rossi
 //
 // All rights reserved.
 //
@@ -7,9 +7,13 @@
 package main
 
 import (
+	"crypto"
+	"crypto/ecdsa"
+	"crypto/elliptic"
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/hex"
 	"encoding/pem"
 	"flag"
 	"fmt"
@@ -36,6 +40,7 @@ func main() {
 	caName := flag.String("ca", "", "The name of the CA")
 	createCA := flag.Bool("create-ca", false, "Create CA")
 	createEE := flag.String("create-ee", "", "Create EE certificate")
+	pubkey := flag.String("pubkey", "", "Certificate public key")
 	addr := flag.String("addr", ":443", "Address to listen")
 	acmeHostname := flag.String("acme", "", "ACME hostname")
 	email := flag.String("email", "", "")
@@ -70,7 +75,30 @@ func main() {
 		log.Fatal(err)
 	}
 	if len(*createEE) != 0 {
-		err = createEECertificate(ca, *createEE, time.Hour*24*365*2)
+		var pk crypto.PublicKey
+		if len(*pubkey) != 0 {
+			data, err := hex.DecodeString(*pubkey)
+			if err != nil {
+				log.Fatal(err)
+			}
+			pk, err = ecdsa.ParseUncompressedPublicKey(elliptic.P256(), data)
+			if err != nil {
+				log.Fatal(err)
+			}
+		} else {
+			priv, pub, err := ca.CreateEEKey()
+			if err != nil {
+				log.Fatal(err)
+			}
+			err = pki.SavePrivateKey("ee-priv.pem", priv)
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			pk = pub
+		}
+
+		err = createEECertificate(ca, pk, *createEE, time.Hour*24*365*2)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -129,15 +157,10 @@ func main() {
 	log.Fatal(s.ListenAndServeTLS("", ""))
 }
 
-func createEECertificate(ca *pki.CA, dnsNames string,
+func createEECertificate(ca *pki.CA, pub crypto.PublicKey, dnsNames string,
 	validity time.Duration) error {
 
 	names := strings.Split(dnsNames, ",")
-
-	priv, pub, err := ca.CreateEEKey()
-	if err != nil {
-		return err
-	}
 
 	tmpl := &x509.Certificate{
 		Subject: pkix.Name{
@@ -146,10 +169,6 @@ func createEECertificate(ca *pki.CA, dnsNames string,
 		DNSNames: names,
 	}
 	cert, err := ca.CreateCertificate(tmpl, pub, validity)
-	if err != nil {
-		return err
-	}
-	err = pki.SavePrivateKey("ee-priv.pem", priv)
 	if err != nil {
 		return err
 	}

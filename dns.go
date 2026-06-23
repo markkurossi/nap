@@ -1,5 +1,5 @@
 //
-// Copyright (c) 2020-2025 Markku Rossi
+// Copyright (c) 2020-2026 Markku Rossi
 //
 // All rights reserved.
 //
@@ -78,6 +78,7 @@ func DNSQuery(w http.ResponseWriter, r *http.Request) {
 
 		w.Header().Set("Content-Type", "application/dns-message")
 		w.Write(response)
+		return
 	}
 
 	// XXX we only handle the first question.
@@ -87,7 +88,12 @@ func DNSQuery(w http.ResponseWriter, r *http.Request) {
 
 	var response []byte
 
-	if entry.Block() {
+	if entry == nil {
+		response, ok = doh(w, data)
+		if !ok {
+			return
+		}
+	} else if entry.Block() {
 		logInfo.Printf("block: %s (%s)", name, entry.Labels)
 		response, err = nonExistingDomain(dns)
 	} else if len(entry.Name) > 0 {
